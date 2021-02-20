@@ -1,12 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
 var ffmpeg = require('fluent-ffmpeg');
-
-// const { Video } = require('../models/Video');
-// const { Subscriber } = require('../models/Subscriber');
-// const { auth } = require('../middleware/auth');
 
 var storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -18,7 +13,7 @@ var storage = multer.diskStorage({
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname);
     if (ext !== '.mp4') {
-      return cb(res.status(400).end('mp4 is allowed'), false);
+      return cb(res.status(400).end('only jpg, png, mp4 is allowed'), false);
     }
     cb(null, true);
   },
@@ -37,26 +32,31 @@ router.post('/uploadfiles', (req, res) => {
     }
     return res.json({
       success: true,
-      filePath: res.req.file.path,
+      url: res.req.file.path,
       fileName: res.req.file.filename,
     });
   });
 });
 
 router.post('/thumbnail', (req, res) => {
-  let filePath = '';
+  //썸네일 생성 하고 비디오 러닝타임도 가져오는 api
+
   let fileDuration = '';
-
-  ffmpeg.ffprobe(req.body.url, (err, metadata) => {
-    console.dir(metadata);
-    console.log(metadata.format.duration);
-
-    fileDuration = metadata.format.duration;
+  let filePath = '';
+  //비디오 정보 가져오기
+  ffmpeg.ffprobe(req.body.url, function (err, metadata) {
+    //url을 받으면 해당 비디오에대한 정보가 metadata에담김
+    console.log(metadata); //metadata안에담기는 모든정보들 체킹
+    fileDuration = metadata.format.duration; //동영상길이대입
   });
+  //썸네일 생성
+  ffmpeg(req.body.url) //클라이언트에서보낸 비디오저장경로
+    .on('filenames', function (filenames) {
+      //해당 url에있는 동영상을 밑에 스크린샷옵션을 기반으로
+      //캡처한후 filenames라는 이름에 파일이름들을 저장
+      console.log('will generate ' + filenames.join(','));
+      console.log('filenames:', filenames);
 
-  ffmpeg(req.body.url)
-    .on('filenames', (filenames) => {
-      console.log('Will generate ' + filenames.join(', '));
       filePath = 'uploads/thumbnails/' + filenames[0];
     })
     .on('end', function () {
@@ -66,13 +66,18 @@ router.post('/thumbnail', (req, res) => {
         url: filePath,
         fileDuration: fileDuration,
       });
+      //fileDuration :비디오 러닝타임
+    })
+    .on('error', function (err) {
+      console.log(err);
+      return res.json({ success: false, err });
     })
     .screenshots({
-      // Will take screens at 20%, 40%, 60% and 80% of the video
+      //Will take screenshots at 20% 40% 60% and 80% of the video
       count: 3,
       folder: 'uploads/thumbnails',
       size: '320x240',
-      // %b input basename ( filename w/o extension )
+      //'%b':input basename(filename w/o extension) = 확장자제외파일명
       filename: 'thumbnail-%b.png',
     });
 });
