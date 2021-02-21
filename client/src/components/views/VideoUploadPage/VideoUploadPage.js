@@ -2,6 +2,7 @@ import { Typography, Button, Form, message, Input, Icon } from 'antd';
 import React, { useState } from 'react';
 import Dropzone from 'react-dropzone';
 import Axios from 'axios';
+import { useSelector } from 'react-redux';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -18,6 +19,7 @@ const CategoryOptions = [
 ];
 
 const VideoUploadPage = (props) => {
+  const user = useSelector((state) => state.user);
   const [VideoTitle, setVideoTitle] = useState('');
   const [Description, setDescription] = useState('');
   const [Private, setPrivate] = useState(0);
@@ -26,6 +28,8 @@ const VideoUploadPage = (props) => {
   const [FilePath, setFilePath] = useState('');
   const [Duration, setDuration] = useState('');
   const [ThumbnailPath, setThumbnailPath] = useState('');
+
+  console.log(ThumbnailPath);
   const onTitleChange = (e) => {
     setVideoTitle(e.currentTarget.value);
   };
@@ -64,6 +68,7 @@ const VideoUploadPage = (props) => {
           if (response.data.success) {
             console.log(response.data);
             setDuration(response.data.fileDuration); //동영상길이
+
             setThumbnailPath(response.data.url); //썸네일주소
           } else {
             alert('썸네일 생성에 실패했습니다.');
@@ -74,7 +79,30 @@ const VideoUploadPage = (props) => {
       }
     });
   };
-  const onSubmit = () => {};
+  const onSubmit = (e) => {
+    e.preventDefault();
+
+    const variable = {
+      writer: user.userData._id,
+      title: VideoTitle,
+      description: Description,
+      privacy: Private,
+      filePath: FilePath,
+      category: Category,
+      duration: Duration,
+      thumbnail: ThumbnailPath,
+    };
+    Axios.post('/api/video/uploadVideo', variable).then((response) => {
+      if (response.data.success) {
+        message.success('성공적으로 업로드 완료');
+        let a = setTimeout(() => {
+          props.history.push('/');
+        }, 3000);
+      } else {
+        alert('비디오 업로드에 실패 했습니다.');
+      }
+    });
+  };
   return (
     <div style={{ maxWidth: '700px', margin: '2rem auto' }}>
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
@@ -103,13 +131,14 @@ const VideoUploadPage = (props) => {
               </div>
             )}
           </Dropzone>
-
-          <div>
-            <img
-              src={`http://localhost:5000/${ThumbnailPath}`}
-              alt='thumbnail'
-            />
-          </div>
+          {ThumbnailPath && (
+            <div>
+              <img
+                src={`http://localhost:5000/${ThumbnailPath}`}
+                alt='thumbnail'
+              />
+            </div>
+          )}
         </div>
         <br />
         <br />
@@ -140,7 +169,7 @@ const VideoUploadPage = (props) => {
         </select>
         <br />
         <br />
-        <Button type='primary' size='large' onClick>
+        <Button type='primary' size='large' onClick={onSubmit}>
           Submit
         </Button>
       </Form>
